@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BotSnare| Security Header Scanner</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='index.css')}}">
+</head>
+<body>
+  <header>
+    <div class="logo">
+      <img src="{{ url_for('static', filename='wbotsnare.ico')}}" alt="BotSnare logo">
+        <h3>BotSnare</h3>
+    </div>
+    <nav class="nav-links">
+      <ul>
+        <li><a href="#why">Why BotSnare</a></li>
+        <li><a href="#team">Team</a></li>
+        <li><a href="#contact">Contact</a></li>
+      </ul>
+    </nav>
+
+    <div class="burger-menu">
+      <span></span>
+      <span></span>
+      <span></span>
+    </div>
+        
+    <div class="mobile-menu">
+      <div class="mobile-menu-logo">
+        <img src="{{ url_for('static', filename='wbotsnare.ico')}}" alt="BotSnare logo">
+        <span>BotSnare</span>
+      </div>
+        <ul>
+          <li><a href="#why">Why BotSnare</a></li>
+          <li><a href="#team">Team</a></li>
+          <li><a href="#contact">Contact</a></li>
+        </ul>
+    </div>
+  </header>
+
+  <section class="maintenance">
+    <h1>BotSnare Security Header Scanner</h1>
+    <p>BotSnare Security Header Scanner is a tool for checking security headers. Helps protect against bots and vulnerabilities in just a few clicks.</p>
+  </section>
+
+  <div class="search">
+    <input type="text" id="domainInput" placeholder="">
+
+    <button id="scanButton">
+      <i class="fa-solid fa-magnifying-glass"></i>
+    </button>
+  </div>
+
+  <script>
+    const domains = [
+      'https://example.com',
+      'https://google.com',
+      'https://github.com'
+    ];
+    
+    const input = document.getElementById('domainInput');
+    let currentDomain = 0;
+    
+    function rotatePlaceholder() {
+      input.placeholder = `e.g. ${domains[currentDomain]}`;
+      currentDomain = (currentDomain + 1) % domains.length;
+    }
+    
+    rotatePlaceholder();
+    let interval = setInterval(rotatePlaceholder, 2000);
+    
+    input.addEventListener('focus', () => {
+      clearInterval(interval);
+      input.placeholder = 'Enter full URL (https://...)';
+    });
+    
+    input.addEventListener('blur', () => {
+      currentDomain = 0;
+      rotatePlaceholder();
+      interval = setInterval(rotatePlaceholder, 2000);
+    });
+    
+    document.getElementById('scanButton').addEventListener('click', () => {
+      const domain = input.value.trim();
+      if(domain) {
+        window.location.href = `/scan?domain=${encodeURIComponent(domain)}`;
+      }
+    });
+    
+    // document.getElementById("searchIcon").addEventListener("click", scanDomain);
+    input.addEventListener('keydown', (e) => {
+    document.addEventListener('keydown', (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          scanDomain();
+        }
+      });
+      
+    //  if (e.key === "Enter") scanDomain();
+    // if (e.key === "Enter") {
+     //  e.preventDefault();
+     //  scanDomain();
+    // }
+    });
+
+    async function scanDomain() {
+      let domain = input.value.trim();
+      if (!domain) return;
+
+      const resultsContainer = document.getElementById("resultsContainer");
+      
+      resultsContainer.innerHTML = `
+      <div class="scan-status">
+        <i class="fas fa-spinner fa-spin"></i>
+        Scanning security headers
+      </div>
+      `;
+       
+      try {
+        if (!domain.startsWith("http://") && !domain.startsWith("https://")) {
+          domain = "https://" + domain;
+        }
+
+        const response = await fetch(`/scan?domain=${encodeURIComponent(domain)}`);
+        const data = await response.json();
+        if (data.error) throw new Error(data.error);
+
+        resultsContainer.innerHTML = createResultsHTML(data.headers);
+      } catch (error) {
+        resultsContainer.innerHTML = `
+        <div class="scan-error">
+          <i class="fas fa-exclamation-triangle"></i>
+          Error: ${error.message}
+        </div>
+        `;
+      }
+    }
+    function createResultsHTML(headers) {
+
+      const headersLower = Object.fromEntries(
+        Object.entries(headers).map(([k, v]) => [k.toLowerCase(), v])
+      )
+
+      const securityHeaders = {
+        'content-type': 'application/javascript',
+        'access-control-allow-origin': '*',
+        'cache-control': 'no-store, must-revalidate',
+        'x-content-type-options': 'nosniff',
+        'x-frame-options': 'DENY',
+        'strict-transport-security': 'max-age=31536000; includeSubDomains',
+        'content-security-policy': "default-src 'self'; script-src 'self'"
+      };
+
+      return `
+      <div class="security-results">
+        ${Object.entries(securityHeaders).map(([header, ideal]) => {
+          const currentValue = headersLower[header];
+          return `
+            <div class="header-row ${currentValue ? 'passed' : 'missing'}">
+              <div class="header-info">
+                <span class="header-name">${header}</span>
+                <span class="header-status">
+                  ${currentValue ? `
+                    <i class="fas fa-check-circle"></i> Found
+                  ` : `
+                    <i class="fas fa-times-circle"></i> Missing
+                  `}
+                </span>
+              </div>
+              ${currentValue && `
+                <div class="header-values">
+                  <span class="current-value">Current: ${currentValue}</span>
+                  <span class="recommended-value">Recommended: ${ideal}</span>
+                </div>
+              `}
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
+  }
+  </script>
+</body>
+</html>
